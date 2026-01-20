@@ -1,8 +1,8 @@
 # Breadline
 
-[![npm version](https://img.shields.io/npm/v/breadline.svg)](https://www.npmjs.com/package/breadline)
-[![npm downloads](https://img.shields.io/npm/dm/breadline.svg)](https://www.npmjs.com/package/breadline)
-[![License](https://img.shields.io/npm/l/breadline.svg)](https://github.com/triple-sun/breadline/blob/master/LICENSE)
+[![npm version](https://img.shields.io/npm/v/breadline-ts.svg)](https://www.npmjs.com/package/breadline)
+[![npm downloads](https://img.shields.io/npm/dm/breadline-ts.svg)](https://www.npmjs.com/package/breadline)
+[![License](https://img.shields.io/npm/l/breadline-ts.svg)](https://github.com/triple-sun/breadline/blob/master/LICENSE)
 
 **Breadline** is a robust, type-safe asynchronous task queue for Node.js. It helps you manage concurrency, enforce rate limits, and schedule tasks with priorities, all while retaining full control over execution flow.
 
