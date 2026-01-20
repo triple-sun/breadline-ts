@@ -1,6 +1,6 @@
 {
 	"name": "breadline-ts",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Queue manager for async operations",
 	"main": "build/index.js",
 	"scripts": {
