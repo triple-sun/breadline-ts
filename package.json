@@ -1,5 +1,5 @@
 {
-  "name": "breadline",
+  "name": "breadline-ts",
   "version": "0.0.1",
   "description": "Queue manager for async operations",
   "main": "dist/index.js",

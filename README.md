@@ -19,7 +19,7 @@
 ## Installation
 
 ```bash
-npm install breadline
+npm install breadline-ts
 ```
 
 ## Usage
