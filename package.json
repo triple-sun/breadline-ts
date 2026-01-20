@@ -2,7 +2,7 @@
 	"name": "breadline-ts",
 	"version": "0.0.2",
 	"description": "Queue manager for async operations",
-	"main": "dist/index.js",
+	"main": "build/index.js",
 	"scripts": {
 		"test": "jest",
 		"build": "rimraf build && tsc",
