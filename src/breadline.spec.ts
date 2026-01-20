@@ -143,8 +143,8 @@ describe("Breadline", () => {
 			queue = new Breadline();
 			const ac = new AbortController();
 			const taskPromise = queue.add(
-				async ({ signal }) => {
-					return new Promise((_, reject) => {
+				async () => {
+					return new Promise((_, __) => {
 						// Never resolves naturally
 					});
 				},
@@ -157,8 +157,7 @@ describe("Breadline", () => {
 		});
 
 		it("should clean up listeners", async () => {
-			// Difficult to test private listener cleanup directly without exposing internals or mocking
-			// but functional test above proves it works.
+			/** TODO: implement */
 		});
 	});
 
