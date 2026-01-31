@@ -8,5 +8,5 @@ export enum BreadlineEvent {
 	Error = "error",
 	PendingZero = "pending0",
 	RateLimited = "rateLimited",
-	RateLimitCleared = "rateLimitCleared",
+	RateLimitCleared = "rateLimitCleared"
 }

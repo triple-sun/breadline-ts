@@ -1,13 +1,17 @@
 {
 	"name": "breadline-ts",
-	"version": "0.0.6",
+	"version": "1.0.0",
 	"description": "Queue manager for async operations",
 	"main": "build/index.js",
+	"engines": {
+		"node": ">18"
+	},
 	"scripts": {
 		"test": "jest",
 		"build": "rimraf build && tsc",
-		"format": "npx @biomejs/biome format ./src --write",
-		"lint": "npx @biomejs/biome lint ./src"
+		"format": "npx @biomejs/biome format ./ --write",
+		"lint": "npx @biomejs/biome lint ./src",
+		"prepare": "husky"
 	},
 	"repository": {
 		"type": "git",
@@ -21,7 +25,7 @@
 		"task-priority-manager",
 		"task-manager",
 		"priority-queue",
-    "priority-manager",
+		"priority-manager",
 		"pqueue"
 	],
 	"author": "Simon Kononets <sploit.strannik@gmail.com>",
@@ -34,35 +38,27 @@
 		"build"
 	],
 	"devDependencies": {
-		"@biomejs/biome": "2.3.11",
-		"@types/jest": "^29.5.14",
+		"@biomejs/biome": "2.3.10",
+		"@types/jest": "^30.0.0",
 		"@types/node": "^22.9.0",
-		"jest": "^29.0.0",
-		"rimraf": "^5.0.10",
+		"husky": "^9.1.7",
+		"jest": "^30.2.0",
+		"lint-staged": "^16.2.7",
+		"rimraf": "^6.1.2",
 		"ts-jest": "^29.2.5",
+		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	},
-	"jest": {
-		"moduleFileExtensions": [
-			"js",
-			"json",
-			"ts"
-		],
-		"rootDir": "src",
-		"testRegex": ".*\\.spec\\.ts$",
-		"transform": {
-			"^.+\\.(t|j)s$": "ts-jest"
-		},
-		"collectCoverageFrom": [
-			"**/*.(t|j)s"
-		],
-		"coverageDirectory": "../coverage",
-		"testEnvironment": "node",
-		"moduleNameMapper": {
-			"^(\\.{1,2}/.*)\\.js$": "$1"
-		}
-	},
 	"dependencies": {
-		"eventemitter3": "^5.0.1"
+		"eventemitter3": "^5.0.4"
+	},
+	"lint-staged": {
+		"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+			"biome check --files-ignore-unknown=true",
+			"biome check --write --no-errors-on-unmatched"
+		],
+		"*": [
+			"biome check --no-errors-on-unmatched --files-ignore-unknown=true"
+		]
 	}
 }

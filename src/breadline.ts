@@ -1,20 +1,20 @@
 import { webcrypto } from "node:crypto";
 import { EventEmitter } from "eventemitter3";
-import { BreadlineEvent } from "./enum.js";
+import { BreadlineEvent } from "./enum";
+import { Heap, type HeapAddOptions } from "./heap";
 import type {
 	BreadlineOptions,
 	RunningTask,
-	TaskAddOptions,
-} from "./interfaces.js";
-import { Line, type LineAddOptions } from "./line.js";
-import type { TaskWithOptions } from "./types.js";
-import { validateNumericOption } from "./utils.js";
+	TaskAddOptions
+} from "./interfaces";
+import type { TaskWithOptions } from "./types";
+import { validateNumericOption } from "./utils";
 
 export class Breadline extends EventEmitter<BreadlineEvent> {
-	private line: Line;
+	private heap: Heap;
 
 	private readonly interval: number;
-	private readonly intervalTickCap: number;
+	private readonly intervalCap: number;
 
 	#pending: number = 0;
 	#concurrency: number;
@@ -37,27 +37,25 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			intervalCap: options?.intervalCap ?? Number.POSITIVE_INFINITY,
 			concurrency: options?.concurrency ?? Number.POSITIVE_INFINITY,
 			immediate: options?.immediate ?? true,
-			...options,
+			...options
 		};
 
 		validateNumericOption("interval", o.interval, { min: 1 });
 		validateNumericOption("intervalCap", o.intervalCap, {
 			min: 1,
-			finite: false,
+			finite: false
 		});
-		validateNumericOption("concurrency", o.intervalCap, {
+		validateNumericOption("concurrency", o.concurrency, {
 			min: 1,
-			finite: false,
+			finite: false
 		});
 
-		this.line = new Line();
+		this.heap = new Heap();
 		this.#concurrency = o.concurrency;
 		this.#isPaused = o.immediate === false;
 		this.interval = o.interval;
-		this.intervalTickCap = o.intervalCap;
-		this.isRateLimitTracked = !(
-			Number.isFinite(o.intervalCap) && o.interval === 0
-		);
+		this.intervalCap = o.intervalCap;
+		this.isRateLimitTracked = Number.isFinite(o.intervalCap);
 
 		this.startRateLimitTracking();
 	}
@@ -92,9 +90,9 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Clears the line
 	 * */
 	public clear(): this {
-		this.line = new Line();
+		this.heap = new Heap();
 		// Force synchronous update since clear() should have immediate effect
-		this.resetRateLimit();
+		this.setRateLimit();
 		// Emit events so waiters (onEmpty, onIdle, onSizeLessThan) can resolve
 		this.emit(BreadlineEvent.Empty);
 		if (this.#pending === 0) {
@@ -106,12 +104,12 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	}
 
 	/** Returns length of the line */
-	public get length(): number {
-		return this.line.length;
+	public get size(): number {
+		return this.heap.length;
 	}
 	/** Length of the line filtered by options. **/
-	public lengthBy(o: Readonly<Partial<TaskAddOptions>>): number {
-		return this.line.filter(o).length;
+	public sizeBy(o: Readonly<Partial<TaskAddOptions>>): number {
+		return this.heap.filter(o).length;
 	}
 	get pending(): Readonly<number> {
 		return this.#pending;
@@ -126,12 +124,12 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		return this.#isRateLimited;
 	}
 	get runningTasks(): ReadonlyArray<RunningTask> {
-		return [...this.#runningTasks.values()].map((task) => ({ ...task }));
+		return [...this.#runningTasks.values()].map(task => ({ ...task }));
 	}
 	get isSaturated(): boolean {
 		return (
-			(this.#pending === this.#concurrency && this.length > 0) ||
-			(this.#isRateLimited && this.length > 0)
+			(this.#pending === this.#concurrency && this.size > 0) ||
+			(this.#isRateLimited && this.size > 0)
 		);
 	}
 
@@ -140,38 +138,38 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * */
 	public prioritize(id: string, priority: number): this {
 		validateNumericOption("priority", priority, {
-			min: Number.MIN_SAFE_INTEGER,
+			min: Number.MIN_SAFE_INTEGER
 		});
-		this.line.prioritize(id, priority);
+		this.heap.prioritize(id, priority);
 		return this;
 	}
 
 	/**
 	 * Adds a sync or async task to the line
 	 * */
-	public async add<RESULT_TYPE>(
+	public add<RESULT_TYPE>(
 		task: TaskWithOptions<RESULT_TYPE>,
-		opts?: TaskAddOptions,
+		opts?: TaskAddOptions
 	): Promise<RESULT_TYPE> {
 		// Create a copy to avoid mutating the original options object
-		const o: Readonly<LineAddOptions> = {
+		const o: Readonly<HeapAddOptions> = {
 			id: opts?.id ?? webcrypto.randomUUID(),
 			priority: opts?.priority ?? 0,
 			signal: opts?.signal,
-			...opts,
+			...opts
 		};
 
 		return new Promise((res, rej) => {
 			// Create a unique symbol for tracking this task
 			const taskSymbol = Symbol(`task-${o.id}`);
 
-			this.line.add(async () => {
+			this.heap.add(async () => {
 				this.#pending++;
 				/** track it */
 				this.#runningTasks.set(taskSymbol, {
 					id: o.id,
 					priority: o.priority ?? 0, // Match priority-queue default
-					startTime: Date.now(),
+					startTime: Date.now()
 				});
 
 				let listener: (() => void) | undefined;
@@ -181,7 +179,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 					try {
 						o.signal?.throwIfAborted();
 					} catch (error) {
-						this.restoreInterval();
+						this.restoreTick();
 						this.#runningTasks.delete(taskSymbol);
 						throw error;
 					}
@@ -196,7 +194,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 							new Promise<never>((_resolve, reject) => {
 								listener = () => reject(signal.reason);
 								signal.addEventListener("abort", listener, { once: true });
-							}),
+							})
 						]);
 					}
 					const result = await operation;
@@ -220,18 +218,18 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			}, o);
 
 			this.emit(BreadlineEvent.Add);
-			this.tryToStartAnother();
+			this.tryToStartNewJob();
 		});
 	}
 
 	/**
 	 * Adds many tasks and rejects if unsuccessful
 	 * */
-	async addMany<TaskResultsType>(
+	addMany<TaskResultsType>(
 		tasks: ReadonlyArray<TaskWithOptions<TaskResultsType>>,
-		opts: TaskAddOptions = {},
+		opts: TaskAddOptions = {}
 	): Promise<TaskResultsType[]> {
-		return Promise.all(tasks.map(async (task) => this.add(task, opts)));
+		return Promise.all(tasks.map(async task => this.add(task, opts)));
 	}
 
 	/**
@@ -242,7 +240,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Settles when the line length is 0
 	 * */
 	public async onEmpty(): Promise<void> {
-		if (this.line.length === 0) return;
+		if (this.heap.length === 0) return;
 		await this.onEvent(BreadlineEvent.Empty);
 	}
 
@@ -251,8 +249,8 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * */
 	public async onSizeLessThan(limit: number): Promise<void> {
 		// Instantly resolve if the queue is empty.
-		if (this.line.length < limit) return;
-		await this.onEvent(BreadlineEvent.Next, () => this.line.length < limit);
+		if (this.heap.length < limit) return;
+		await this.onEvent(BreadlineEvent.Next, () => this.heap.length < limit);
 	}
 
 	/**
@@ -260,7 +258,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * */
 	public async onIdle(): Promise<void> {
 		// Instantly resolve if none pending and if nothing else is queued
-		if (this.#pending === 0 && this.line.length === 0) return;
+		if (this.#pending === 0 && this.heap.length === 0) return;
 		await this.onEvent(BreadlineEvent.Idle);
 	}
 
@@ -293,7 +291,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Use with `Promise.race([queue.onError(), queue.onIdle()])` to fail on the first error while still resolving normally when the queue goes idle.
 	 * Important: The promise returned by `add()` still rejects. You must handle each `add()` promise (for example, `.catch(() => {})`) to avoid unhandled rejections.
 	 * */
-	public async onError(): Promise<never> {
+	public onError(): Promise<never> {
 		return new Promise<never>((_, reject) => {
 			const handleError = (error: unknown) => {
 				this.off(BreadlineEvent.Error, handleError);
@@ -312,43 +310,47 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Executes all queued functions until it reaches the limit.
 	 * */
 	private process(): void {
-		while (this.tryToStartAnother()) {}
+		while (this.tryToStartNewJob()) {
+			null;
+		}
 	}
 
 	private next(): void {
 		this.#pending--;
 		if (this.#pending === 0) this.emit(BreadlineEvent.PendingZero);
-		this.tryToStartAnother();
+		this.tryToStartNewJob();
 		this.emit(BreadlineEvent.Next);
 	}
 
-	private cleanup(): false {
+	private cleanup(): void {
 		this.emit(BreadlineEvent.Empty);
 		if (this.#pending === 0) {
 			this.clearTimeoutTimer();
 			if (this.ticksStartIndex > 0) this.cleanupTicks(Date.now());
 			this.emit(BreadlineEvent.Idle);
 		}
-		return false;
 	}
 
-	private get activeTicksCount(): number {
+	private getActiveTicksCount(): number {
 		return this.ticks.length - this.ticksStartIndex;
 	}
 
-	private get allowsAnotherInterval(): boolean {
-		if (!this.isRateLimitTracked) return true;
-		return (
-			this.activeTicksCount < this.intervalTickCap &&
-			this.#pending < this.#concurrency
-		);
+	private allowsAnotherInterval(): boolean {
+		// Check concurrency strictly
+		if (this.#pending >= this.#concurrency) return false;
+
+		if (this.isRateLimitTracked) {
+			return this.getActiveTicksCount() < this.intervalCap;
+		}
+
+		return true;
 	}
 
-	private async onEvent(
+	private onEvent(
 		event: BreadlineEvent,
-		filter?: () => boolean,
+		filter?: () => boolean
 	): Promise<void> {
-		return new Promise((resolve) => {
+		return new Promise(resolve => {
 			const listener = () => {
 				if (filter && !filter()) return;
 				this.off(event, listener);
@@ -384,27 +386,35 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		}
 	}
 
-	private tryToStartAnother(): boolean {
-		if (this.line.length === 0) return this.cleanup();
+	private tryToStartNewJob(): boolean {
+		if (this.heap.length === 0) {
+			this.cleanup();
+			return false;
+		}
+
 		if (!this.#isPaused) {
 			const now = Date.now();
-			if (this.allowsAnotherInterval) {
-				const job = this.line.pick();
-				// Check if we need to wait for oldest tick to age out
-				this.cleanupTicks(now);
-				if (this.allowsAnotherInterval) {
-					if (job) {
-						if (this.isRateLimitTracked) {
-							this.ticks.push(now);
-							this.scheduleRateLimitReset();
-						}
-						this.emit(BreadlineEvent.Active);
-						job();
-						return true;
-					}
+			this.onNotPausedNewJob(now);
+
+			if (this.allowsAnotherInterval()) {
+				const job = this.heap.pick();
+
+				/** should not happen bc we check for it but... */
+				if (!job) return false;
+
+				if (this.isRateLimitTracked) {
+					this.consumeTick(now);
+					this.scheduleRateLimitReset();
 				}
+
+				this.emit(BreadlineEvent.Active);
+
+				job();
+
+				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -413,7 +423,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		if (!this.isRateLimitTracked) return;
 		/** attach to events that should reset state */
 		this.on(BreadlineEvent.Add, () => {
-			if (this.line.length > 0) this.scheduleRateLimitReset();
+			if (this.heap.length > 0) this.scheduleRateLimitReset();
 		});
 		this.on(BreadlineEvent.Next, this.scheduleRateLimitReset);
 		this.on(BreadlineEvent.RateLimitCleared, () => this.process());
@@ -425,56 +435,65 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		this.#hasRateLimitResetPlanned = true;
 		queueMicrotask(() => {
 			this.#hasRateLimitResetPlanned = false;
-			this.resetRateLimit();
+			this.setRateLimit();
 		});
 	}
 
-	private restoreInterval(): void {
+	private restoreTick(): void {
 		if (!this.isRateLimitTracked) return;
 		if (this.ticks.length > this.ticksStartIndex) this.ticks.pop();
 		this.scheduleRateLimitReset();
 	}
 
-	private resetRateLimit(): void {
+	private setRateLimit(): void {
 		const prev = this.#isRateLimited;
 		/** exit if untracked or empty */
-		if (!this.isRateLimitTracked || this.line.length === 0) {
+		if (!this.isRateLimitTracked || this.heap.length === 0) {
 			if (prev) {
 				this.#isRateLimited = false;
 				this.emit(BreadlineEvent.RateLimitCleared);
 			}
 			return;
 		}
-		
+
 		const now = Date.now();
 		this.cleanupTicks(now);
 
-		const count = this.activeTicksCount;
-		const shouldBeRateLimited = count >= this.intervalTickCap;
+		const count = this.getActiveTicksCount();
+		const shouldBeRateLimited = count >= this.intervalCap;
 		/** update status based on active ticks vs cap  */
 		if (shouldBeRateLimited !== prev) {
 			this.#isRateLimited = shouldBeRateLimited;
 			this.emit(
 				shouldBeRateLimited
 					? BreadlineEvent.RateLimited
-					: BreadlineEvent.RateLimitCleared,
+					: BreadlineEvent.RateLimitCleared
 			);
 		}
+	}
 
-		if (this.activeTicksCount > 0) {
-			const oldestTick = this.ticks[this.ticksStartIndex];
-			if (oldestTick !== undefined) {
-				const delay = oldestTick + this.interval - Date.now();
-				this.clearTimeoutTimer();
-				if (delay <= 0) {
-					// Should have been cleaned up by cleanupTicks, but safety check
-					this.scheduleRateLimitReset();
-				} else {
-					this.timeoutId = setTimeout(() => {
-						this.scheduleRateLimitReset();
-					}, delay);
-				}
-			}
+	private onNotPausedNewJob(now: number): void {
+		this.cleanupTicks(now);
+
+		const activeTicksCount = this.getActiveTicksCount();
+		const oldestTick = this.ticks[this.ticksStartIndex];
+
+		if (activeTicksCount >= this.intervalCap && oldestTick) {
+			const delay = this.interval - (now - oldestTick);
+
+			/** break if timeout exists */
+			if (this.timeoutId !== undefined) return;
+
+			/** create timeout */
+			this.timeoutId = setTimeout(() => {
+				this.timeoutId = undefined;
+				this.process();
+				this.scheduleRateLimitReset();
+			}, delay);
 		}
+	}
+
+	private consumeTick(now: number) {
+		this.ticks.push(now);
 	}
 }

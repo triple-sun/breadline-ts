@@ -11,6 +11,7 @@
 * **Concurrency Control**: Limit the number of tasks running in parallel.
 * **Rate Limiting**: Enforce strict execution limits over time windows (e.g., 10 reqs / 1 sec).
 * **Priority Support**: Schedule urgent tasks to run before others.
+* **Max-Heap Based Queue**: Fastest possible priority queue implementation.
 * **AbortSignal Support**: Cancel queued or running tasks using standard `AbortController`.
 * **Event-Driven**: Hook into lifecycle events like `empty`, `idle`, or `rateLimited`.
 * **Zero Dependencies**: (Almost) zero — only `eventemitter3` for efficient event handling.
