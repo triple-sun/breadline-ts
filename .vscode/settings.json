@@ -5,12 +5,14 @@
 		"**/.hg": true,
 		"**/.DS_Store": true,
 		"**/Thumbs.db": true,
-		"**/node_modules": false
+		"**/node_modules": true
 	},
 	"editor.codeActionsOnSave": {
+		"source.organizeImports": "explicit",
 		"source.organizeImports.biome": "explicit",
 		"source.fixAll.biome": "explicit"
 	},
+	"editor.formatOnSave": true,
 	"editor.defaultFormatter": "biomejs.biome",
 	"[css]": {
 		"editor.defaultFormatter": "biomejs.biome"
@@ -38,5 +40,8 @@
 	},
 	"[vue]": {
 		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[shellscript]": {
+		"editor.defaultFormatter": "mkhl.shfmt"
 	}
 }

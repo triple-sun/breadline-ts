@@ -1,12 +1,12 @@
-import { Heap } from "./heap";
-import type { Task } from "./types";
+import type { Task } from "../types";
+import { BinaryMaxHeap } from "./binary-max-heap";
 
-describe("Heap", () => {
-	let heap: Heap;
+describe("Binary Min-Max ", () => {
+	let heap: BinaryMaxHeap;
 	const noop: Task = async () => null;
 
 	beforeEach(() => {
-		heap = new Heap();
+		heap = new BinaryMaxHeap();
 	});
 
 	it("should start empty", () => {

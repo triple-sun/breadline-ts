@@ -1,28 +1,27 @@
-import type { TaskAddOptions } from "./interfaces";
-import type { Task } from "./types";
+import type { Queue, TaskAddOptions } from "../interfaces";
+import type { Task } from "../types";
 
-interface HeapElement extends TaskAddOptions {
+interface BinaryMaxHeapElement extends TaskAddOptions {
 	readonly priority: number;
 	readonly task: Task;
 	// We need id to track tasks for prioritize()
 	readonly id: string;
 }
 
-export interface HeapAddOptions extends TaskAddOptions {
+export interface BinaryMaxHeapAddOptions extends TaskAddOptions {
 	readonly id: string;
 	readonly priority: number;
 }
 
-/** Binary Max-Heap */
-export class Heap {
-	private readonly heap: HeapElement[] = [];
+export class BinaryMaxHeap implements Queue {
+	private readonly heap: BinaryMaxHeapElement[] = [];
 	private readonly indexMap: Map<string, number> = new Map();
 
 	get length(): number {
 		return this.heap.length;
 	}
 
-	filter(o: Readonly<Partial<HeapAddOptions>>): Task[] {
+	filter(o: Readonly<Partial<BinaryMaxHeapAddOptions>>): Task[] {
 		// Filter based on criteria
 		// Note: The heap is not sorted, but the previous implementation returned elements in priority order (implicitly, as it was sorted).
 		// To maintain compatibility, we should sort the result of the filter.
@@ -56,8 +55,8 @@ export class Heap {
 		return root?.task;
 	}
 
-	public add(task: Task, o: HeapAddOptions): void {
-		const newElement: HeapElement = {
+	public add(task: Task, o: BinaryMaxHeapAddOptions): void {
+		const newElement: BinaryMaxHeapElement = {
 			task,
 			id: o.id,
 			priority: o.priority
@@ -80,7 +79,7 @@ export class Heap {
 		const oldPriority = element.priority;
 
 		// Create new element with updated priority (keeping other props)
-		const updatedElement: HeapElement = {
+		const updatedElement: BinaryMaxHeapElement = {
 			...element,
 			priority
 		};

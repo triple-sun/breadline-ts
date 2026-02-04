@@ -1,21 +1,26 @@
-import { webcrypto } from "node:crypto";
 import { EventEmitter } from "eventemitter3";
 import { BreadlineEvent } from "./enum";
-import { Heap, type HeapAddOptions } from "./heap";
 import type {
 	BreadlineOptions,
+	Queue,
 	RunningTask,
 	TaskAddOptions
 } from "./interfaces";
+import {
+	BinaryMaxHeap,
+	type BinaryMaxHeapAddOptions
+} from "./queues/binary-max-heap";
+import { PriorityQueue } from "./queues/priority-queue";
 import type { TaskWithOptions } from "./types";
 import { validateNumericOption } from "./utils";
 
 export class Breadline extends EventEmitter<BreadlineEvent> {
-	private heap: Heap;
+	private q: Queue;
 
 	private readonly interval: number;
 	private readonly intervalCap: number;
 
+	#idSource: number = 0;
 	#pending: number = 0;
 	#concurrency: number;
 	#isPaused: boolean;
@@ -37,6 +42,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			intervalCap: options?.intervalCap ?? Number.POSITIVE_INFINITY,
 			concurrency: options?.concurrency ?? Number.POSITIVE_INFINITY,
 			immediate: options?.immediate ?? true,
+			queue: PriorityQueue,
 			...options
 		};
 
@@ -50,7 +56,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			finite: false
 		});
 
-		this.heap = new Heap();
+		this.q = new o.queue();
 		this.#concurrency = o.concurrency;
 		this.#isPaused = o.immediate === false;
 		this.interval = o.interval;
@@ -90,7 +96,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Clears the line
 	 * */
 	public clear(): this {
-		this.heap = new Heap();
+		this.q = new BinaryMaxHeap();
 		// Force synchronous update since clear() should have immediate effect
 		this.setRateLimit();
 		// Emit events so waiters (onEmpty, onIdle, onSizeLessThan) can resolve
@@ -105,11 +111,11 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 
 	/** Returns length of the line */
 	public get size(): number {
-		return this.heap.length;
+		return this.q.length;
 	}
 	/** Length of the line filtered by options. **/
 	public sizeBy(o: Readonly<Partial<TaskAddOptions>>): number {
-		return this.heap.filter(o).length;
+		return this.q.filter(o).length;
 	}
 	get pending(): Readonly<number> {
 		return this.#pending;
@@ -140,7 +146,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		validateNumericOption("priority", priority, {
 			min: Number.MIN_SAFE_INTEGER
 		});
-		this.heap.prioritize(id, priority);
+		this.q.prioritize(id, priority);
 		return this;
 	}
 
@@ -152,8 +158,8 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		opts?: TaskAddOptions
 	): Promise<RESULT_TYPE> {
 		// Create a copy to avoid mutating the original options object
-		const o: Readonly<HeapAddOptions> = {
-			id: opts?.id ?? webcrypto.randomUUID(),
+		const o: Readonly<BinaryMaxHeapAddOptions> = {
+			id: opts?.id ?? `${this.#idSource++}`,
 			priority: opts?.priority ?? 0,
 			signal: opts?.signal,
 			...opts
@@ -163,7 +169,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			// Create a unique symbol for tracking this task
 			const taskSymbol = Symbol(`task-${o.id}`);
 
-			this.heap.add(async () => {
+			this.q.add(async () => {
 				this.#pending++;
 				/** track it */
 				this.#runningTasks.set(taskSymbol, {
@@ -240,7 +246,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * Settles when the line length is 0
 	 * */
 	public async onEmpty(): Promise<void> {
-		if (this.heap.length === 0) return;
+		if (this.q.length === 0) return;
 		await this.onEvent(BreadlineEvent.Empty);
 	}
 
@@ -249,8 +255,8 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * */
 	public async onSizeLessThan(limit: number): Promise<void> {
 		// Instantly resolve if the queue is empty.
-		if (this.heap.length < limit) return;
-		await this.onEvent(BreadlineEvent.Next, () => this.heap.length < limit);
+		if (this.q.length < limit) return;
+		await this.onEvent(BreadlineEvent.Next, () => this.q.length < limit);
 	}
 
 	/**
@@ -258,7 +264,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	 * */
 	public async onIdle(): Promise<void> {
 		// Instantly resolve if none pending and if nothing else is queued
-		if (this.#pending === 0 && this.heap.length === 0) return;
+		if (this.#pending === 0 && this.q.length === 0) return;
 		await this.onEvent(BreadlineEvent.Idle);
 	}
 
@@ -387,7 +393,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	}
 
 	private tryToStartNewJob(): boolean {
-		if (this.heap.length === 0) {
+		if (this.q.length === 0) {
 			this.cleanup();
 			return false;
 		}
@@ -397,7 +403,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 			this.onNotPausedNewJob(now);
 
 			if (this.allowsAnotherInterval()) {
-				const job = this.heap.pick();
+				const job = this.q.pick();
 
 				/** should not happen bc we check for it but... */
 				if (!job) return false;
@@ -423,7 +429,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 		if (!this.isRateLimitTracked) return;
 		/** attach to events that should reset state */
 		this.on(BreadlineEvent.Add, () => {
-			if (this.heap.length > 0) this.scheduleRateLimitReset();
+			if (this.q.length > 0) this.scheduleRateLimitReset();
 		});
 		this.on(BreadlineEvent.Next, this.scheduleRateLimitReset);
 		this.on(BreadlineEvent.RateLimitCleared, () => this.process());
@@ -448,7 +454,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	private setRateLimit(): void {
 		const prev = this.#isRateLimited;
 		/** exit if untracked or empty */
-		if (!this.isRateLimitTracked || this.heap.length === 0) {
+		if (!this.isRateLimitTracked || this.q.length === 0) {
 			if (prev) {
 				this.#isRateLimited = false;
 				this.emit(BreadlineEvent.RateLimitCleared);
