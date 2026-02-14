@@ -11,7 +11,7 @@
 * **Concurrency Control**: Limit the number of tasks running in parallel.
 * **Rate Limiting**: Enforce strict execution limits over time windows (e.g., 10 reqs / 1 sec).
 * **Priority Support**: Schedule urgent tasks to run before others.
-* **Max-Heap Based Queue**: Fastest possible priority queue implementation.
+* **Pluggable Queues**: Use the default Priority Queue or switch to Binary Max-Heap for performance.
 * **AbortSignal Support**: Cancel queued or running tasks using standard `AbortController`.
 * **Event-Driven**: Hook into lifecycle events like `empty`, `idle`, or `rateLimited`.
 * **Zero Dependencies**: (Almost) zero — only `eventemitter3` for efficient event handling.
@@ -82,6 +82,19 @@ queue.add(async () => console.log("Medium priority"), { priority: 5 });
 // Low priority
 ```
 
+### Custom Queues
+
+You can swap the internal queue implementation for better performance or custom behavior.
+
+```typescript
+import { Breadline, BinaryMaxHeap } from "breadline";
+
+// Use BinaryMaxHeap for potentially faster priority handling in very large queues
+const queue = new Breadline({
+    queue: BinaryMaxHeap
+});
+```
+
 ### Cancellation (AbortSignal)
 
 Cancel tasks that are waiting in the queue or currently running (if supported by the task).
@@ -114,6 +127,7 @@ Creates a new queue instance.
 | `interval` | `number` | `1` | Time window in milliseconds for rate limiting. |
 | `intervalCap` | `number` | `Infinity` | Max tasks allowed per `interval`. |
 | `immediate` | `boolean` | `true` | If `true`, tasks start immediately. If `false`, call `start()`. |
+| `queue` | `class` | `PriorityQueue` | Custom queue implementation (e.g. `BinaryMaxHeap`). |
 
 ### Methods
 

@@ -1,6 +1,6 @@
 {
 	"name": "breadline-ts",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Queue manager for async operations",
 	"main": "build/index.js",
 	"engines": {
@@ -12,7 +12,8 @@
 		"format": "biome format --write",
 		"lint": "biome lint",
 		"prepare": "husky",
-		"prepublishOnly": "rimraf build && tsc && husky && jest"
+		"prepublishOnly": "rimraf build && tsc && husky && jest",
+		"bench": "tsx benchmarks/main.ts"
 	},
 	"files": [
 		"build"
@@ -38,7 +39,6 @@
 		"url": "https://github.com/triple-sun/breadline/issues"
 	},
 	"homepage": "https://github.com/triple-sun/breadline#readme",
-
 	"devDependencies": {
 		"@biomejs/biome": "2.3.10",
 		"@types/jest": "^30.0.0",
@@ -46,9 +46,11 @@
 		"husky": "^9.1.7",
 		"jest": "^30.2.0",
 		"lint-staged": "^16.2.7",
+		"mitata": "^1.0.34",
 		"rimraf": "^6.1.2",
 		"ts-jest": "^29.2.5",
 		"ts-node": "^10.9.2",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {

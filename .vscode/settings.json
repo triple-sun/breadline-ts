@@ -40,8 +40,5 @@
 	},
 	"[vue]": {
 		"editor.defaultFormatter": "biomejs.biome"
-	},
-	"[shellscript]": {
-		"editor.defaultFormatter": "mkhl.shfmt"
 	}
 }
