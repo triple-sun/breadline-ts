@@ -1,6 +1,6 @@
 {
 	"name": "breadline-ts",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"description": "Queue manager for async operations",
 	"main": "build/index.js",
 	"engines": {
@@ -9,10 +9,10 @@
 	"scripts": {
 		"test": "jest",
 		"build": "rimraf build && tsc",
-		"format": "biome format --write",
+		"check": "biome check --write",
 		"lint": "biome lint",
 		"prepare": "husky",
-		"prepublishOnly": "rimraf build && tsc && husky && jest",
+		"prepublishOnly": "pnpm run check && rimraf build && tsc && lint-staged && jest",
 		"bench": "tsx benchmarks/main.ts"
 	},
 	"files": [

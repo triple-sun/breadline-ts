@@ -110,7 +110,7 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	}
 
 	/** Returns length of the line */
-	public get size(): number {
+	public get size(): Readonly<number> {
 		return this.q.length;
 	}
 	/** Length of the line filtered by options. **/
@@ -126,13 +126,10 @@ export class Breadline extends EventEmitter<BreadlineEvent> {
 	get isRateLimited(): Readonly<boolean> {
 		return this.#isRateLimited;
 	}
-	get isRateLimitF(): Readonly<boolean> {
-		return this.#isRateLimited;
-	}
 	get runningTasks(): ReadonlyArray<RunningTask> {
 		return [...this.#runningTasks.values()].map(task => ({ ...task }));
 	}
-	get isSaturated(): boolean {
+	get isSaturated(): Readonly<boolean> {
 		return (
 			(this.#pending === this.#concurrency && this.size > 0) ||
 			(this.#isRateLimited && this.size > 0)

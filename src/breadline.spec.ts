@@ -33,7 +33,7 @@ describe("Breadline", () => {
 			queue = new Breadline({
 				intervalCap: Number.POSITIVE_INFINITY
 			});
-			expect(queue.isRateLimitF).toBe(false);
+			expect(queue.isRateLimited).toBe(false);
 		});
 	});
 

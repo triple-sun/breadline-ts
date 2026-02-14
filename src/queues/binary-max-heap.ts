@@ -47,12 +47,17 @@ export class BinaryMaxHeap implements Queue {
 			this.indexMap.set(last.id, 0);
 			this.indexMap.delete(root.id);
 			this.bubbleDown(0);
-		} else if (root) {
+		} else {
 			// Only one element was in the heap
-			this.indexMap.delete(root.id);
+			// root is guaranteed to be defined here because length was > 0 at start
+			// and pop() returns the only element as 'last' (which is equal to 'root' and 'last')
+			// but we need 'root' reference for id
+			// biome-ignore lint/style/noNonNullAssertion: guaranteed by length check
+			this.indexMap.delete(root!.id);
 		}
 
-		return root?.task;
+		// biome-ignore lint/style/noNonNullAssertion: guaranteed by length check
+		return root!.task;
 	}
 
 	public add(task: Task, o: BinaryMaxHeapAddOptions): void {
@@ -132,7 +137,11 @@ export class BinaryMaxHeap implements Queue {
 
 			if (rightChildIndex < length && right) {
 				const compareTo = swapIndex === -1 ? current : this.heap[swapIndex];
-				if (compareTo && right.priority > compareTo.priority) {
+				// compareTo is guaranteed to be defined because:
+				// 1. inner loop check: current is defined
+				// 2. if swapIndex != -1, it is leftChildIndex, and left is defined
+				// biome-ignore lint/style/noNonNullAssertion: guaranteed by logic
+				if (right.priority > compareTo!.priority) {
 					swapIndex = rightChildIndex;
 				}
 			}
